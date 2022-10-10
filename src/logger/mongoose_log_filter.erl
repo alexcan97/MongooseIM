@@ -15,7 +15,6 @@
 
 -include("mongoose.hrl").
 -include_lib("jid/include/jid.hrl").
--include("ejabberd_c2s.hrl").
 
 %% The templater in flatlog works with meta fields.
 %% So, we would need a filter, that takes the interesting fields
@@ -104,16 +103,17 @@ remove_fields_filter(Event, _) ->
     Event.
 
 
-c2s_state_to_map(#state{socket = Socket, streamid = StreamId,
-                        jid = Jid, sid = Sid}) ->
-    SocketMap = ejabberd_socket:format_socket(Socket),
+c2s_state_to_map(State) ->
+    % SocketMap = ejabberd_socket:format_socket(Socket),
+    SocketMap = #{},
+    Jid = mongoose_c2s:get_jid(State),
     SocketMap#{
-      streamid => StreamId,
+      streamid => mongoose_c2s:get_stream_id(State),
       jid => maybe_jid_to_binary(Jid),
       user => maybe_jid_to_luser(Jid),
       server => maybe_jid_to_lserver(Jid),
       resource => maybe_jid_to_lresource(Jid),
-      session_started => maybe_sid_to_timestamp(Sid)}.
+      session_started => maybe_sid_to_timestamp(mongoose_c2s:get_sid(State))}.
 
 format_term(X) -> iolist_to_binary(io_lib:format("~0p", [X])).
 
