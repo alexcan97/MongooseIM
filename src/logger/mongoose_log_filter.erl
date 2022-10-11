@@ -104,8 +104,7 @@ remove_fields_filter(Event, _) ->
 
 
 c2s_state_to_map(State) ->
-    % SocketMap = ejabberd_socket:format_socket(Socket),
-    SocketMap = #{},
+    SocketMap = format_socket(mongoose_c2s:get_socket(State)),
     Jid = mongoose_c2s:get_jid(State),
     SocketMap#{
       streamid => mongoose_c2s:get_stream_id(State),
@@ -135,6 +134,23 @@ format_microseconds(N) ->
     calendar:system_time_to_rfc3339(N, [{unit, microsecond},
                                         {offset, 0},
                                         {time_designator, $T}]).
+
+format_socket(undefined) ->
+    #{};
+format_socket(Socket) ->
+    DestAddress = mongoose_c2s_socket:get_ip(Socket),
+    #{
+        transport => mongoose_c2s_socket:get_transport(Socket),
+        conntype => mongoose_c2s_socket:get_conn_type(Socket),
+        dest_address => format_address(DestAddress),
+        ranch_ref => mongoose_c2s_socket:get_ranch_ref(Socket)
+    }.
+
+format_address({Address, Port}) ->
+    #{
+        address => inet:ntoa(Address),
+        port => Port
+    }.
 
 format_stacktrace_args([{_Mod,_Fun,Args,_Info}|_]) when is_list(Args) ->
     iolist_to_binary(io_lib:format("~p", [Args]));

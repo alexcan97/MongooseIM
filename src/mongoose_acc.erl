@@ -54,7 +54,7 @@
          delete_many/3
         ]).
 % Strip with or without stanza replacement
--export([strip/1, strip/2]).
+-export([strip/2]).
 
 -ignore_xref([delete/2, ref/1]).
 -ignore_xref([strip/1]). % TODO: Check

@@ -906,7 +906,7 @@ get_sid(#c2s_data{sid = Sid}) ->
 get_ip(#c2s_data{socket = Socket}) ->
     mongoose_c2s_socket:get_ip(Socket).
 
--spec get_socket(c2s_data()) -> term().
+-spec get_socket(c2s_data()) -> mongoose_c2s_socket:socket() | undefined.
 get_socket(#c2s_data{socket = Socket}) ->
     Socket.
 

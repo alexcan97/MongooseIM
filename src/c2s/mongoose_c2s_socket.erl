@@ -11,8 +11,10 @@
          has_peer_cert/2,
          is_channel_binding_supported/1,
          is_ssl/1,
+         get_transport/1,
+         get_conn_type/1,
          get_ip/1,
-         get_conn_type/1
+         get_ranch_ref/1
         ]).
 
 -record(c2s_socket, {
@@ -171,11 +173,19 @@ is_channel_binding_supported(#c2s_socket{transport = Transport}) ->
 is_ssl(#c2s_socket{transport = Transport}) ->
     ranch_tcp =/= Transport.
 
--spec get_ip(socket()) -> term().
-get_ip(#c2s_socket{ip = Ip}) ->
-    Ip.
+-spec get_transport(socket()) -> transport().
+get_transport(#c2s_socket{transport = Transport}) ->
+    Transport.
 
 -spec get_conn_type(socket()) -> conntype().
 get_conn_type(#c2s_socket{transport = ranch_tcp}) -> c2s;
 get_conn_type(#c2s_socket{transport = ranch_ssl}) -> c2s_tls;
 get_conn_type(#c2s_socket{transport = fast_tls}) -> c2s_tls.
+
+-spec get_ip(socket()) -> term().
+get_ip(#c2s_socket{ip = Ip}) ->
+    Ip.
+
+-spec get_ranch_ref(socket()) -> ranch:ref().
+get_ranch_ref(#c2s_socket{ranch_ref = Ref}) ->
+    Ref.
