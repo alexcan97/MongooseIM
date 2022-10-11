@@ -30,7 +30,6 @@ groups() ->
        store_retrieve_and_delete_many,
        init_from_element,
        produce_iq_meta_automatically,
-       strip,
        strip_with_params,
        parse_with_cdata
       ]
@@ -129,38 +128,6 @@ parse_with_cdata(_C) ->
     Acc = mongoose_acc:new(?ACC_PARAMS#{element => stanza_with_cdata()}),
     {XMLNS, _} = mongoose_iq:xmlns(Acc),
     ?assertEqual(<<"jabber:iq:roster">>, XMLNS).
-
-strip(_C) ->
-    El = iq_stanza(),
-    FromJID = jid:make(<<"jajid">>, <<"localhost">>, <<>>),
-    ToJID = jid:make(<<"tyjid">>, <<"localhost">>, <<>>),
-    Server = maps:get(lserver, ?ACC_PARAMS),
-    HostType = maps:get(host_type, ?ACC_PARAMS),
-    Acc = mongoose_acc:new(?ACC_PARAMS#{element => El,
-                                        from_jid => FromJID,
-                                        to_jid => ToJID}),
-    {XMLNS1, Acc1} = mongoose_iq:xmlns(Acc),
-    ?assertEqual(<<"urn:ietf:params:xml:ns:xmpp-session">>, XMLNS1),
-    ?assertEqual(<<"set">>, mongoose_acc:stanza_type(Acc1)),
-    ?assertEqual(undefined, mongoose_acc:get(ns, ppp, undefined, Acc1)),
-    Acc2 = mongoose_acc:set_permanent(ns, ppp, 997, Acc1),
-    Acc3 = mongoose_acc:set(ns2, [{a, 1}, {b, 2}], Acc2),
-    ?assertMatch([_, _], mongoose_acc:get(ns2, Acc3)),
-    ?assertEqual(Server, mongoose_acc:lserver(Acc3)),
-    ?assertEqual(HostType, mongoose_acc:host_type(Acc3)),
-    ?assertEqual({FromJID, ToJID, El}, mongoose_acc:packet(Acc3)),
-    Ref = mongoose_acc:ref(Acc3),
-    %% strip stanza and check that only non-permanent fields are missing
-    NAcc1 = mongoose_acc:strip(Acc3),
-    {XMLNS3, NAcc2} = mongoose_iq:xmlns(NAcc1),
-    ?assertEqual(<<"urn:ietf:params:xml:ns:xmpp-session">>, XMLNS3),
-    ?assertEqual(<<"set">>, mongoose_acc:stanza_type(NAcc2)),
-    ?assertEqual(Server, mongoose_acc:lserver(NAcc2)),
-    ?assertEqual(HostType, mongoose_acc:host_type(NAcc2)),
-    ?assertEqual({FromJID, ToJID, El}, mongoose_acc:packet(NAcc2)),
-    ?assertEqual(Ref, mongoose_acc:ref(NAcc2)),
-    ?assertEqual(997, mongoose_acc:get(ns, ppp, NAcc2)),
-    ?assertEqual([], mongoose_acc:get(ns2, NAcc2)).
 
 strip_with_params(_Config) ->
     FromJID = jid:make(<<"jajid">>, <<"localhost">>, <<>>),

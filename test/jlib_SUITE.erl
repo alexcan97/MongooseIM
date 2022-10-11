@@ -8,10 +8,6 @@
 -compile([export_all, nowarn_export_all]).
 
 all() -> [
-          make_iq_reply_changes_type_to_result,
-          make_iq_reply_changes_to_to_from,
-          make_iq_reply_switches_from_to_to,
-          make_iq_reply_switches_to_and_from_attrs,
           error_reply_check
          ].
 
@@ -22,47 +18,8 @@ init_per_suite(C) ->
 end_per_suite(C) ->
     C.
 
-
-make_iq_reply_switches_to_and_from_attrs(_C) ->
-    ToJid = <<"test@esl.com/res">>,
-    FromJid = <<"test2@esl.com/res2">>,
-    #xmlel{attrs = Attrs} = BaseIQ = base_iq(),
-
-    IQWithToAndFrom = BaseIQ#xmlel{attrs = [{<<"to">>, ToJid},
-                                            {<<"from">>, FromJid} | Attrs]},
-
-    WithToFromReply = jlib:make_result_iq_reply(IQWithToAndFrom),
-
-    <<"result">> = exml_query:attr(WithToFromReply, <<"type">>),
-    FromJid = exml_query:attr(WithToFromReply, <<"to">>),
-    ToJid = exml_query:attr(WithToFromReply, <<"from">>).
-
-make_iq_reply_switches_from_to_to(_C) ->
-    FromJid = <<"test2@esl.com/res2">>,
-    #xmlel{attrs = Attrs} = BaseIQ = base_iq(),
-    IQWithFrom = BaseIQ#xmlel{attrs = [{<<"from">>, FromJid} | Attrs]},
-
-    WithFromReply = jlib:make_result_iq_reply(IQWithFrom),
-
-    <<"result">> = exml_query:attr(WithFromReply, <<"type">>),
-    FromJid = exml_query:attr(WithFromReply, <<"to">>).
-
-make_iq_reply_changes_to_to_from(_C) ->
-    ToJid = <<"test@esl.com/res">>,
-    #xmlel{attrs = Attrs} = BaseIQ = base_iq(),
-    IQWithTo = BaseIQ#xmlel{attrs = [{<<"to">>, ToJid} | Attrs]},
-
-    WithToReply = jlib:make_result_iq_reply(IQWithTo),
-
-    <<"result">> = exml_query:attr(WithToReply, <<"type">>),
-    ToJid = exml_query:attr(WithToReply, <<"from">>).
-
-make_iq_reply_changes_type_to_result(_) ->
-    BaseIQReply = jlib:make_result_iq_reply(base_iq()),
-    <<"result">> = exml_query:attr(BaseIQReply, <<"type">>).
-
 error_reply_check(_) ->
-    BaseIQReply = jlib:make_result_iq_reply(base_iq()),
+    BaseIQReply = base_iq(),
     Acc = mongoose_acc:new(#{ location => ?LOCATION,
                               lserver => <<"localhost">>,
                               host_type => <<"localhost">>,
@@ -82,7 +39,7 @@ base_iq() ->
     #xmlel{name = <<"iq">>,
            attrs = [{<<"id">>, base64:encode(crypto:strong_rand_bytes(4))},
                     {<<"xmlns">>, <<"jabber:client">>},
-                    {<<"type">>, <<"set">>}],
+                    {<<"type">>, <<"result">>}],
            children = [#xmlel{name = <<"session">>,
                               attrs = [{<<"xmlns">>, <<"urn:ietf:params:xml:ns:xmpp-session">>}]}
                       ]}.
@@ -95,4 +52,3 @@ run_property(Prop, NumTest, StartSize, StopSize) ->
                                      {numtests, NumTest},
                                      {start_size, StartSize},
                                      {max_size, StopSize}])).
-
