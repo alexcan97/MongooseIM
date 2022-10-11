@@ -35,7 +35,7 @@
          route/3,
          route/4,
          make_new_sid/0,
-         open_session/4, open_session/5,
+         open_session/5,
          close_session/4,
          store_info/3,
          get_info/2,
@@ -43,7 +43,6 @@
          get_user_resources/1,
          set_presence/6,
          unset_presence/5,
-         close_session_unset_presence/5,
          get_unique_sessions_number/0,
          get_total_sessions_number/0,
          get_node_sessions_number/0,
@@ -203,15 +202,6 @@ route(From, To, Acc, El) ->
 make_new_sid() ->
     {erlang:system_time(microsecond), self()}.
 
--spec open_session(HostType, SID, JID, Info) -> ReplacedPids when
-      HostType :: binary(),
-      SID :: 'undefined' | sid(),
-      JID :: jid:jid(),
-      Info :: info(),
-      ReplacedPids :: [pid()].
-open_session(HostType, SID, JID, Info) ->
-    open_session(HostType, SID, JID, undefined, Info).
-
 -spec open_session(HostType, SID, JID, Priority, Info) -> ReplacedPids when
       HostType :: binary(),
       SID :: 'undefined' | sid(),
@@ -351,18 +341,6 @@ set_presence(Acc, SID, JID, Priority, Presence, Info) ->
 unset_presence(Acc, SID, JID, Status, Info) ->
     set_session(SID, JID, undefined, Info),
     mongoose_hooks:unset_presence_hook(Acc, JID, Status).
-
-
--spec close_session_unset_presence(Acc, SID, JID, Status, Reason) -> Acc1 when
-      Acc :: mongoose_acc:t(),
-      SID :: 'undefined' | sid(),
-      JID :: jid:jid(),
-      Status :: binary(),
-      Reason :: close_reason(),
-      Acc1 :: mongoose_acc:t().
-close_session_unset_presence(Acc, SID, JID, Status, Reason) ->
-    Acc1 = close_session(Acc, SID, JID, Reason),
-    mongoose_hooks:unset_presence_hook(Acc1, JID, Status).
 
 
 -spec get_session_pid(JID) -> none | pid() when
