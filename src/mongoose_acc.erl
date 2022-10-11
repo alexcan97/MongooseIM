@@ -57,6 +57,7 @@
 -export([strip/1, strip/2]).
 
 -ignore_xref([delete/2, ref/1]).
+-ignore_xref([strip/1]). % TODO: Check
 
 %% Note about 'undefined' to_jid and from_jid: these are the special cases when JID may be
 %% truly unknown: before a client is authorized.

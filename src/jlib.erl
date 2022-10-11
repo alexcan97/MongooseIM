@@ -28,8 +28,7 @@
 -xep([{xep, 59}, {version, "1.0"}]).
 -xep([{xep, 68}, {version, "1.2"}]).
 -xep([{xep, 86}, {version, "1.0"}]).
--export([make_result_iq_reply/1,
-         make_error_reply/2,
+-export([make_error_reply/2,
          make_error_reply/3,
          make_invitation/3,
          make_config_change_message/1,
@@ -85,37 +84,6 @@
               xmlch/0,
               iq/0
              ]).
-
--spec make_result_iq_reply(exml:element()) -> exml:element();
-                          (iq()) -> iq().
-make_result_iq_reply(XE = #xmlel{attrs = Attrs}) ->
-    NewAttrs = make_result_iq_reply_attrs(Attrs),
-    XE#xmlel{attrs = NewAttrs};
-make_result_iq_reply(IQ = #iq{}) ->
-    IQ#iq{ type = result }.
-
-
--spec make_result_iq_reply_attrs([binary_pair()]) -> [binary_pair(), ...].
-make_result_iq_reply_attrs(Attrs) ->
-    To = xml:get_attr(<<"to">>, Attrs),
-    From = xml:get_attr(<<"from">>, Attrs),
-    Attrs1 = lists:keydelete(<<"to">>, 1, Attrs),
-    Attrs2 = lists:keydelete(<<"from">>, 1, Attrs1),
-    Attrs3 = case To of
-                 {value, ToVal} ->
-                     [{<<"from">>, ToVal} | Attrs2];
-                 _ ->
-                     Attrs2
-             end,
-    Attrs4 = case From of
-                 {value, FromVal} ->
-                     [{<<"to">>, FromVal} | Attrs3];
-                 _ ->
-                     Attrs3
-             end,
-    Attrs5 = lists:keydelete(<<"type">>, 1, Attrs4),
-    [{<<"type">>, <<"result">>} | Attrs5].
-
 
 -spec make_error_reply(exml:element() | mongoose_acc:t(),
                        xmlcdata() | exml:element()) ->

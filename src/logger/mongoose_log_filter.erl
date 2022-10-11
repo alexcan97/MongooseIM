@@ -129,8 +129,7 @@ maybe_jid_to_lserver(_) -> undefined.
 maybe_jid_to_lresource(#jid{lresource = LResource}) -> LResource;
 maybe_jid_to_lresource(_) -> undefined.
 
-maybe_sid_to_timestamp({Timestamp, _Pid}) -> format_microseconds(Timestamp);
-maybe_sid_to_timestamp(_) -> undefined.
+maybe_sid_to_timestamp({Timestamp, _Pid}) -> format_microseconds(Timestamp).
 
 format_microseconds(N) ->
     calendar:system_time_to_rfc3339(N, [{unit, microsecond},
