@@ -473,13 +473,13 @@ xmpp_stanza_dropped(Acc, From, To, Packet) ->
 %% C2S related hooks
 
 -spec c2s_broadcast_recipients(State, Type, From, Packet) -> Result when
-    State :: ejabberd_c2s:state(),
+    State :: mongoose_c2s:state(),
     Type :: {atom(), any()},
     From :: jid:jid(),
     Packet :: exml:element(),
     Result :: [jid:simple_jid()].
 c2s_broadcast_recipients(State, Type, From, Packet) ->
-    HostType = ejabberd_c2s_state:host_type(State),
+    HostType = mongoose_c2s:get_host_type(State),
     run_hook_for_host_type(c2s_broadcast_recipients, HostType, [],
                            [State, Type, From, Packet]).
 
