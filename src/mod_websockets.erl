@@ -8,6 +8,7 @@
 -behaviour(mongoose_http_handler).
 -behaviour(cowboy_websocket).
 -behaviour(mongoose_transport).
+-behaviour(mongoose_c2s_socket).
 
 %% mongoose_http_handler callbacks
 -export([config_spec/0]).
@@ -18,6 +19,17 @@
          websocket_handle/2,
          websocket_info/2,
          terminate/3]).
+
+%% mongoose_c2s_socket callbacks
+
+-export([new/2,
+         tcp_to_tls/2,
+         handle_socket_data/2,
+         activate_socket/1,
+         send_text/2,
+         has_peer_cert/2,
+         is_channel_binding_supported/1,
+         is_ssl/1]).
 
 %% ejabberd_socket compatibility
 -export([starttls/2, starttls/3,
@@ -56,7 +68,7 @@
           parser :: exml_stream:parser() | undefined,
           opts :: map(),
           ping_rate :: integer() | none,
-          max_stanza_size :: integer() | infinity,
+          max_stanza_size :: integer(),
           peercert :: undefined | passed | binary()
           %% the passed value is used to clear the certificate from the handlers state after it's passed down to the socket()
          }).
@@ -71,11 +83,11 @@ config_spec() ->
                                                 validate = non_negative},
                        <<"ping_rate">> => #option{type = integer,
                                                   validate = positive},
-                       <<"max_stanza_size">> => #option{type = int_or_infinity,
+                       <<"max_stanza_size">> => #option{type = integer,
                                                         validate = positive},
                        <<"service">> => mongoose_config_spec:xmpp_listener_extra(service)},
              defaults = #{<<"timeout">> => 60000,
-                          <<"max_stanza_size">> => infinity}
+                          <<"max_stanza_size">> => 0}
             }.
 
 %%--------------------------------------------------------------------
@@ -202,10 +214,9 @@ process_parse_error(Reason, #ws_state{fsm_pid = FSM} = State) ->
     send_to_fsm(FSM, {xmlstreamerror, Reason}),
     {ok, State}.
 
-send_to_fsm(FSM, #xmlel{} = Element) ->
-    send_to_fsm(FSM, {xmlstreamelement, Element});
-send_to_fsm(FSM, StreamElement) ->
-    p1_fsm:send_event(FSM, StreamElement).
+send_to_fsm(FSM, Element) ->
+    FSM ! {tcp, undefined, Element},
+    ok.
 
 maybe_start_fsm([#xmlstreamstart{ name = <<"stream", _/binary>>, attrs = Attrs}
                  | _],
@@ -217,9 +228,15 @@ maybe_start_fsm([#xmlstreamstart{ name = <<"stream", _/binary>>, attrs = Attrs}
             {stop, State}
     end;
 maybe_start_fsm([#xmlel{ name = <<"open">> }],
-                #ws_state{fsm_pid = undefined} = State) ->
-    Opts = #{access => all, shaper => none, xml_socket => true, hibernate_after => 0},
-    do_start_fsm(ejabberd_c2s, Opts, State);
+                #ws_state{fsm_pid = undefined, max_stanza_size = MaxStanzaSize} = State) ->
+    Opts = #{
+        access => all,
+        shaper => none,
+        max_stanza_size => MaxStanzaSize,
+        xml_socket => true,
+        hibernate_after => 0,
+        c2s_state_timeout => 999 * 1000},
+    do_start_fsm(mongoose_c2s, Opts, State);
 maybe_start_fsm(_Els, State) ->
     {ok, State}.
 
@@ -243,8 +260,10 @@ do_start_fsm(FSMModule, Opts, State = #ws_state{peer = Peer, peercert = PeerCert
             {stop, State#ws_state{peercert = passed}}
     end.
 
-call_fsm_start(ejabberd_c2s, SocketData, Opts) ->
-    ejabberd_c2s:start({?MODULE, SocketData}, Opts);
+call_fsm_start(mongoose_c2s, SocketData, #{hibernate_after := HibernateAfterTimeout} = Opts) ->
+    mongoose_c2s:start_link({?MODULE, SocketData, Opts},
+                            [{hibernate_after, HibernateAfterTimeout},
+                             {debug, [trace]}]);
 call_fsm_start(ejabberd_service, SocketData, Opts) ->
     ejabberd_service:start({?MODULE, SocketData}, Opts).
 
@@ -359,8 +378,6 @@ replace_stream_ns(Element, #ws_state{ open_tag = open }) ->
 replace_stream_ns(Element, _State) ->
     Element.
 
-get_parser_opts(Text, #ws_state{ max_stanza_size = infinity }) ->
-    [{max_child_size, 0} | get_parser_opts(Text)];
 get_parser_opts(Text, #ws_state{ max_stanza_size = MaxStanzaSize }) ->
     [{max_child_size, MaxStanzaSize} | get_parser_opts(Text)].
 
@@ -423,3 +440,41 @@ case_insensitive_match(LowerPattern, [Case | Cases]) ->
     end;
 case_insensitive_match(_, []) ->
     nomatch.
+
+
+%% mongoose_c2s_socket callbacks
+
+-spec new(socket(), mongoose_listener:options()) -> socket().
+new(Socket, _LOpts) ->
+    Socket.
+
+-spec tcp_to_tls(socket(), mongoose_listener:options()) ->
+  {ok, socket()} | {error, term()}.
+tcp_to_tls(_Socket, _LOpts) ->
+    {error, tls_not_allowed_on_websockets}.
+
+-spec handle_socket_data(socket(), {tcp | ssl, term(), iodata()}) ->
+  iodata() | {raw, term()} | {error, term()}.
+handle_socket_data(_Socket, {_Kind, _Term, Packet}) ->
+    {raw, [Packet]}.
+
+-spec activate_socket(socket()) -> ok.
+activate_socket(_Socket) ->
+    ok.
+
+-spec send_text(socket(), iodata()) -> ok | {error, term()}.
+send_text(#websocket{pid = Pid}, Data) ->
+    Pid ! {send, Data},
+    ok.
+
+-spec has_peer_cert(socket(), mongoose_listener:options()) -> boolean().
+has_peer_cert(Socket, _LOpts) ->
+    get_peer_certificate(Socket) /= no_peer_cert.
+
+-spec is_channel_binding_supported(socket()) -> boolean().
+is_channel_binding_supported(_Socket) ->
+    false.
+
+-spec is_ssl(socket()) -> boolean().
+is_ssl(_Socket) ->
+    false.

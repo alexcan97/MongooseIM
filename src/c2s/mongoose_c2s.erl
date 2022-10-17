@@ -59,20 +59,20 @@
 callback_mode() ->
     handle_event_function.
 
--spec init({ranch:ref(), ranch_tcp, mongoose_listener:options()}) ->
+-spec init({module(), term(), mongoose_listener:options()}) ->
     gen_statem:init_result(c2s_state(), c2s_data()).
-init({RanchRef, ranch_tcp, LOpts}) ->
+init({SocketModule, SocketOpts, LOpts}) ->
     StateData = #c2s_data{listener_opts = LOpts},
-    ConnectEvent = {next_event, internal, {connect, RanchRef}},
+    ConnectEvent = {next_event, internal, {connect, {SocketModule, SocketOpts}}},
     {ok, connect, StateData, ConnectEvent}.
 
 -spec handle_event(gen_statem:event_type(), term(), c2s_state(), c2s_data()) -> fsm_res().
-handle_event(internal, {connect, RanchRef}, connect,
+handle_event(internal, {connect, {SocketModule, SocketOpts}}, connect,
              StateData = #c2s_data{listener_opts = #{shaper := ShaperName,
                                                      max_stanza_size := MaxStanzaSize} = LOpts}) ->
     {ok, Parser} = exml_stream:new_parser([{max_child_size, MaxStanzaSize}]),
     Shaper = shaper:new(ShaperName),
-    C2SSocket = mongoose_c2s_socket:new_socket(RanchRef, LOpts),
+    C2SSocket = mongoose_c2s_socket:new(SocketModule, SocketOpts, LOpts),
     StateData1 = StateData#c2s_data{socket = C2SSocket, parser = Parser, shaper = Shaper},
     {next_state, {wait_for_stream, stream_start}, StateData1, state_timeout(LOpts)};
 
@@ -183,7 +183,15 @@ handle_socket_data(StateData = #c2s_data{socket = Socket}, Payload) ->
             handle_socket_packet(StateData, Data)
     end.
 
--spec handle_socket_packet(c2s_data(), iodata()) -> fsm_res().
+-spec handle_socket_packet(c2s_data(), iodata() | {raw, [term()]}) -> fsm_res().
+handle_socket_packet(StateData = #c2s_data{shaper = Shaper}, {raw, Packets}) ->
+    ?LOG_DEBUG(#{what => received_raw_on_stream, packets => Packets, c2s_pid => self()}),
+    Size = erts_debug:flat_size(Packets),
+    {NewShaper, Pause} = shaper:update(Shaper, Size),
+    NewStateData = StateData#c2s_data{shaper = NewShaper},
+    MaybePauseTimeout = maybe_pause(NewStateData, Pause),
+    StreamEvents = [ {next_event, internal, Packet} || Packet <- Packets ],
+    {keep_state, NewStateData, MaybePauseTimeout ++ StreamEvents};
 handle_socket_packet(StateData = #c2s_data{parser = Parser, shaper = Shaper}, Packet) ->
     ?LOG_DEBUG(#{what => received_xml_on_stream, packet => Packet, c2s_pid => self()}),
     case exml_stream:parse(Parser, Packet) of
