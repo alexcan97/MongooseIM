@@ -7,7 +7,8 @@
          handle_socket_data/2,
          activate_socket/1,
          close/1,
-         send_text/2,
+         mode/0,
+         socket_send/2,
          has_peer_cert/2,
          is_channel_binding_supported/1,
          is_ssl/1]).
@@ -100,12 +101,16 @@ close(#state{transport = ranch_ssl, socket = Socket}) ->
 close(#state{transport = ranch_tcp, socket = Socket}) ->
     ranch_tcp:close(Socket).
 
--spec send_text(state(), iodata()) -> ok | {error, term()}.
-send_text(#state{transport = fast_tls, socket = Socket}, Text) ->
+-spec mode() -> iodata | xml.
+mode() ->
+    iodata.
+
+-spec socket_send(state(), iodata() | exml:element()) -> ok | {error, term()}.
+socket_send(#state{transport = fast_tls, socket = Socket}, Text) ->
     fast_tls:send(Socket, Text);
-send_text(#state{transport = ranch_ssl, socket = Socket}, Text) ->
+socket_send(#state{transport = ranch_ssl, socket = Socket}, Text) ->
     ranch_ssl:send(Socket, Text);
-send_text(#state{transport = ranch_tcp, socket = Socket}, Text) ->
+socket_send(#state{transport = ranch_tcp, socket = Socket}, Text) ->
     ranch_tcp:send(Socket, Text).
 
 -spec has_peer_cert(mongoose_c2s_socket:state(), mongoose_listener:options()) -> boolean().

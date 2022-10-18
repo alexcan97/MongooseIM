@@ -21,12 +21,12 @@
          terminate/3]).
 
 %% mongoose_c2s_socket callbacks
-
 -export([new/2,
          tcp_to_tls/2,
          handle_socket_data/2,
          activate_socket/1,
-         send_text/2,
+         socket_send/2,
+         mode/0,
          has_peer_cert/2,
          is_channel_binding_supported/1,
          is_ssl/1]).
@@ -150,7 +150,11 @@ websocket_info({send, Text}, State) ->
     ?LOG_DEBUG(#{what => ws_send, text => <<"Sending text over WebSockets">>,
                  msg => Text, peer => State#ws_state.peer}),
     {reply, {text, Text}, State};
-websocket_info({send_xml, XML}, State) ->
+websocket_info({send_xml, XML0}, State) ->
+    XML = case XML0 of
+             [Val] -> Val;
+              _ -> XML0
+          end,
     XML1 = process_server_stream_root(replace_stream_ns(XML, State), State),
     Text = exml:to_iolist(XML1),
     ?LOG_DEBUG(#{what => ws_send, text => <<"Sending xml over WebSockets">>,
@@ -235,7 +239,7 @@ maybe_start_fsm([#xmlel{ name = <<"open">> }],
         max_stanza_size => MaxStanzaSize,
         xml_socket => true,
         hibernate_after => 0,
-        c2s_state_timeout => 999 * 1000},
+        c2s_state_timeout => 5000},
     do_start_fsm(mongoose_c2s, Opts, State);
 maybe_start_fsm(_Els, State) ->
     {ok, State}.
@@ -262,8 +266,7 @@ do_start_fsm(FSMModule, Opts, State = #ws_state{peer = Peer, peercert = PeerCert
 
 call_fsm_start(mongoose_c2s, SocketData, #{hibernate_after := HibernateAfterTimeout} = Opts) ->
     mongoose_c2s:start_link({?MODULE, SocketData, Opts},
-                            [{hibernate_after, HibernateAfterTimeout},
-                             {debug, [trace]}]);
+                            [{hibernate_after, HibernateAfterTimeout}, {debug, []}]);
 call_fsm_start(ejabberd_service, SocketData, Opts) ->
     ejabberd_service:start({?MODULE, SocketData}, Opts).
 
@@ -462,9 +465,13 @@ handle_socket_data(_Socket, {_Kind, _Term, Packet}) ->
 activate_socket(_Socket) ->
     ok.
 
--spec send_text(socket(), iodata()) -> ok | {error, term()}.
-send_text(#websocket{pid = Pid}, Data) ->
-    Pid ! {send, Data},
+-spec mode() -> iodata | xml.
+mode() ->
+    xml.
+
+-spec socket_send(socket(), iodata() | exml:element()) -> ok | {error, term()}.
+socket_send(#websocket{pid = Pid}, Xml) ->
+    Pid ! {send_xml, Xml},
     ok.
 
 -spec has_peer_cert(socket(), mongoose_listener:options()) -> boolean().

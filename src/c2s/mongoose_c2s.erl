@@ -223,11 +223,6 @@ close_socket(#c2s_data{socket = Socket}) ->
 activate_socket(#c2s_data{socket = Socket}) ->
     mongoose_c2s_socket:activate_socket(Socket).
 
--spec send_text(c2s_data(), iodata()) -> ok | {error, term()}.
-send_text(#c2s_data{socket = Socket}, Text) ->
-    mongoose_metrics:update(global, [data, xmpp, sent, xml_stanza_size], iolist_size(Text)),
-    mongoose_c2s_socket:send_text(Socket, Text).
-
 -spec filter_mechanism(c2s_data(), binary()) -> boolean().
 filter_mechanism(#c2s_data{socket = Socket}, <<"SCRAM-SHA-1-PLUS">>) ->
     mongoose_c2s_socket:is_channel_binding_supported(Socket);
@@ -767,16 +762,16 @@ stream_start_error(StateData, Error) ->
                   Lang :: ejabberd:lang()) -> any().
 send_header(StateData, Server, Version, Lang) ->
     Header = mongoose_c2s_stanzas:stream_header(Server, Version, Lang, StateData#c2s_data.streamid),
-    send_text(StateData, Header).
+    send_xml(StateData, Header).
 
 send_trailer(StateData) ->
-    send_text(StateData, ?STREAM_TRAILER).
+    send_xml(StateData, ?XML_STREAM_TRAILER).
 
 -spec c2s_stream_error(c2s_data(), exml:element()) -> fsm_res().
 c2s_stream_error(StateData, Error) ->
     ?LOG_DEBUG(#{what => c2s_stream_error, xml_error => Error, c2s_state => StateData}),
     send_element_from_server_jid(StateData, Error),
-    send_text(StateData, ?STREAM_TRAILER),
+    send_xml(StateData, ?XML_STREAM_TRAILER),
     {stop, {shutdown, stream_error}, StateData}.
 
 -spec send_element_from_server_jid(c2s_data(), exml:element()) -> any().
@@ -853,8 +848,8 @@ send_element(StateData, El, Acc) ->
     send_element(StateData, [El], Acc).
 
 -spec send_xml(c2s_data(), exml_stream:element() | [exml_stream:element()]) -> maybe_ok().
-send_xml(StateData, Xml) ->
-    send_text(StateData, exml:to_iolist(Xml)).
+send_xml(#c2s_data{socket = Socket}, Xml) ->
+    mongoose_c2s_socket:send_xml(Socket, Xml).
 
 state_timeout(#{c2s_state_timeout := Timeout}) ->
     {state_timeout, Timeout, state_timeout_termination}.

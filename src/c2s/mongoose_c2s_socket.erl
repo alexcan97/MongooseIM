@@ -7,7 +7,7 @@
          handle_socket_data/2,
          activate_socket/1,
          close/1,
-         send_text/2,
+         send_xml/2,
          has_peer_cert/2,
          is_channel_binding_supported/1,
          is_ssl/1]).
@@ -25,7 +25,8 @@
   iodata() | {raw, [term()]} | {error, term()}.
 -callback activate_socket(state()) -> ok.
 -callback close(state()) -> ok.
--callback send_text(state(), iodata()) -> ok | {error, term()}.
+-callback mode() -> iodata | xml.
+-callback socket_send(state(), exml:element() | iodata()) -> ok | {error, term()}.
 -callback has_peer_cert(state(), mongoose_listener:options()) -> boolean().
 -callback is_channel_binding_supported(state()) -> boolean().
 -callback is_ssl(state()) -> boolean().
@@ -104,9 +105,16 @@ activate_socket(#c2s_socket{module = Module, state = State}) ->
 close(#c2s_socket{module = Module, state = State}) ->
     Module:close(State).
 
--spec send_text(socket(), iodata()) -> ok | {error, term()}.
-send_text(#c2s_socket{module = Module, state = State}, Text) ->
-    Module:send_text(State, Text).
+-spec send_xml(socket(), exml:element()) -> ok | {error, term()}.
+send_xml(#c2s_socket{module = Module, state = State}, Xml) ->
+    case Module:mode() of
+        iodata ->
+            Text = exml:to_iolist(Xml),
+            mongoose_metrics:update(global, [data, xmpp, sent, xml_stanza_size], iolist_size(Text)),
+            Module:socket_send(State, Text);
+        xml ->
+            Module:socket_send(State, Xml)
+    end.
 
 %% 18 is OpenSSL's and fast_tls's error code for self-signed certs
 -spec has_peer_cert(socket(), mongoose_listener:options()) -> boolean().
