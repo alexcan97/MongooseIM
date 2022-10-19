@@ -78,14 +78,11 @@ handle_get(Req, State = #{jid := OwnerJid}) ->
     Resp = [make_json_msg(Msg, MAMId) || #{id := MAMId, packet := Msg} <- Rows],
     {jiffy:encode(Resp), Req, State}.
 
-handle_post(Req, State = #{jid := From}) ->
+handle_post(Req, State = #{jid := UserJid}) ->
     Args = parse_body(Req),
     To = get_to(Args),
     Body = get_body(Args),
-    Packet = mongoose_stanza_helper:build_message(jid:to_binary(From), jid:to_binary(To), Body),
-    {ok, _} =  mongoose_stanza_helper:route(From, To, Packet, true),
-    Id = exml_query:attr(Packet, <<"id">>),
-    Resp = #{<<"id">> => Id},
+    {ok, Resp} = mongoose_stanza_api:send_chat_message(UserJid, null, To, Body),
     Req2 = cowboy_req:set_resp_body(jiffy:encode(Resp), Req),
     {true, Req2, State}.
 

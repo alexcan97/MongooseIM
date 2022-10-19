@@ -15,7 +15,7 @@
       OutResult :: {ok, binary() | integer()} | {error, resolver_error()}.
 format_result(Result, Context) ->
     case Result of
-        {ok, Val} when is_integer(Val) -> {ok, Val};
+        {ok, Val} when is_integer(Val) orelse is_map(Val) -> {ok, Val};
         {ok, Msg} -> {ok, iolist_to_binary(Msg)};
         {ErrCode, Msg} -> make_error(ErrCode, Msg, Context)
     end.

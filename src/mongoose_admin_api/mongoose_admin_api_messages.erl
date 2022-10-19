@@ -78,15 +78,11 @@ handle_post(Req, State) ->
     From = get_caller(Args),
     To = get_to(Args),
     Body = get_body(Args),
-    Packet = mongoose_stanza_helper:build_message(
-               jid:to_binary(From), jid:to_binary(To), Body),
-    case mongoose_stanza_helper:route(From, To, Packet, true) of
-        {error, #{what := unknown_domain}} ->
-            throw_error(bad_request, <<"Unknown domain">>);
-        {error, #{what := unknown_user}} ->
-            throw_error(bad_request, <<"Unknown user">>);
+    case mongoose_stanza_api:send_chat_message(null, From, To, Body) of
         {ok, _} ->
-            {true, Req, State}
+            {true, Req, State};
+        {_Error, Msg} ->
+            throw_error(bad_request, Msg)
     end.
 
 -spec row_to_map(mod_mam:message_row()) -> map().

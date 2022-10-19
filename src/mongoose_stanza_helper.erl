@@ -1,8 +1,9 @@
 -module(mongoose_stanza_helper).
 -export([build_message/3]).
--export([build_message_with_headline/3]).
+-export([build_message_with_headline/4]).
+-export([ensure_id/1]).
 -export([get_last_messages/4]).
--export([route/4]).
+-export([route/5]).
 
 -include("jlib.hrl").
 -include("mongoose_logger.hrl").
@@ -10,23 +11,22 @@
 -spec build_message(From :: binary(), To :: binary(), Body :: binary()) -> exml:element().
 build_message(From, To, Body) ->
     #xmlel{name = <<"message">>,
-           attrs = [{<<"type">>, <<"chat">>},
-                    {<<"id">>, mongoose_bin:gen_from_crypto()},
-                    {<<"from">>, From},
-                    {<<"to">>, To}],
+           attrs = add_id([{<<"type">>, <<"chat">>}, {<<"from">>, From}, {<<"to">>, To}]),
            children = [#xmlel{name = <<"body">>,
                               children = [#xmlcdata{content = Body}]}]
           }.
 
-build_message_with_headline(FromBin, ToBin,
-                            #{<<"body">> := Body, <<"subject">> := Subject}) ->
+build_message_with_headline(From, To, Body, Subject) ->
     Children = maybe_cdata_elem(<<"subject">>, Subject) ++
                maybe_cdata_elem(<<"body">>, Body),
-    Attrs = [{<<"type">>, <<"headline">>},
-             {<<"id">>, mongoose_bin:gen_from_crypto()},
-             {<<"from">>, FromBin},
-             {<<"to">>, ToBin}],
+    Attrs = add_id([{<<"type">>, <<"headline">>}, {<<"from">>, From}, {<<"to">>, To}]),
     #xmlel{name = <<"message">>, attrs = Attrs, children = Children}.
+
+ensure_id(Stanza) ->
+    case get_id(Stanza) of
+        null -> Stanza#xmlel{attrs = add_id(Stanza#xmlel.attrs)};
+        _ -> Stanza
+    end.
 
 maybe_cdata_elem(_, null) -> [];
 maybe_cdata_elem(_, <<>>) -> [];
@@ -52,31 +52,27 @@ null_as_undefined(null) -> undefined;
 null_as_undefined(Value) -> Value.
 
 -spec row_to_map(mod_mam:message_row()) -> {ok, map()}.
-row_to_map(#{id := Id, jid := From, packet := Msg}) ->
-    {Microseconds, _} = mod_mam_utils:decode_compact_uuid(Id),
-    StanzaID = mod_mam_utils:mess_id_to_external_binary(Id),
+row_to_map(#{id := MAMId, jid := From, packet := Msg}) ->
+    {Microseconds, _} = mod_mam_utils:decode_compact_uuid(MAMId),
     Map = #{<<"sender">> => From, <<"timestamp">> => Microseconds,
-            <<"stanza_id">> => StanzaID, <<"stanza">> => Msg},
+            <<"stanza_id">> => get_id(Msg), <<"stanza">> => Msg},
     {ok, Map}.
 
--spec route(From :: jid:jid(), To :: jid:jid(),
-            Packet :: exml:element(), SkipAuth :: boolean()) ->
+-spec route(mongoosim:host_type(), jid:lserver(), From :: jid:jid(), To :: jid:jid(),
+            Packet :: exml:element()) ->
     {ok, map()} | {error, term()}.
-route(From = #jid{lserver = LServer}, To, Packet, SkipAuth) ->
-    case mongoose_graphql_helper:check_user(From, SkipAuth) of
-        {ok, HostType} ->
-            do_route(HostType, LServer, From, To, Packet);
-        Error ->
-            Error
-    end.
-
-do_route(HostType, LServer, From, To, Packet) ->
-    %% Based on mod_commands:do_send_packet/3
+route(HostType, LServer, From, To, Packet) ->
     Acc = mongoose_acc:new(#{location => ?LOCATION,
-                              host_type => HostType,
-                              lserver => LServer,
-                              element => Packet}),
+                             host_type => HostType,
+                             lserver => LServer,
+                             element => Packet}),
     Acc1 = mongoose_hooks:user_send_packet(Acc, From, To, Packet),
-    Acc2 = ejabberd_router:route(From, To, Acc1),
-    MessID = mod_mam_utils:get_mam_id_ext(Acc2),
-    {ok, #{ <<"id">> => MessID }}.
+    ejabberd_router:route(From, To, Acc1),
+    {ok, #{<<"id">> => get_id(Packet)}}.
+
+add_id(Attrs) ->
+    [{<<"id">>, mongoose_bin:gen_from_crypto()} | Attrs].
+
+-spec get_id(exml:element()) -> binary() | null.
+get_id(Stanza) ->
+    exml_query:attr(Stanza, <<"id">>, null).

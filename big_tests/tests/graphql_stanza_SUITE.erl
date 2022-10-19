@@ -185,8 +185,7 @@ admin_send_message_headline_story(Config, Alice, Bob) ->
     To = escalus_client:short_jid(Bob),
     Res = send_message_headline(From, To, <<"Welcome">>, <<"Hi!">>, Config),
     #{<<"id">> := MamID} = get_ok_value([data, stanza, sendMessageHeadLine], Res),
-    % Headlines are not stored in MAM
-    <<>> = MamID,
+    assert_not_empty(MamID, Config),
     escalus:assert(is_message, escalus:wait_for_stanza(Bob)).
 
 user_send_message_headline(Config) ->
@@ -198,8 +197,7 @@ user_send_message_headline_story(Config, Alice, Bob) ->
     To = escalus_client:short_jid(Bob),
     Res = user_send_message_headline(Alice, From, To, <<"Welcome">>, <<"Hi!">>, Config),
     #{<<"id">> := MamID} = get_ok_value([data, stanza, sendMessageHeadLine], Res),
-    % Headlines are not stored in MAM
-    <<>> = MamID,
+    assert_not_empty(MamID, Config),
     escalus:assert(is_message, escalus:wait_for_stanza(Bob)).
 
 user_send_message_headline_with_spoofed_from(Config) ->
@@ -312,8 +310,8 @@ admin_send_stanza_from_unknown_user_story(Config, Bob) ->
     From = <<"YeeeAH@", Server/binary>>,
     Stanza = escalus_stanza:from(escalus_stanza:chat_to_short_jid(Bob, Body), From),
     Res = send_stanza(exml:to_binary(Stanza), Config),
-    ?assertEqual(<<"unknown_user">>, get_err_code(Res)),
-    ?assertEqual(<<"Given user does not exist">>, get_err_msg(Res)).
+    ?assertEqual(<<"unknown_sender">>, get_err_code(Res)),
+    ?assertEqual(<<"Sender's account does not exist">>, get_err_msg(Res)).
 
 admin_send_stanza_from_unknown_domain(Config) ->
     escalus:fresh_story_with_config(Config, [{bob, 1}],
@@ -324,8 +322,8 @@ admin_send_stanza_from_unknown_domain_story(Config, Bob) ->
     From = <<"YeeeAH@oopsie">>,
     Stanza = escalus_stanza:from(escalus_stanza:chat_to_short_jid(Bob, Body), From),
     Res = send_stanza(exml:to_binary(Stanza), Config),
-    ?assertEqual(<<"unknown_domain">>, get_err_code(Res)),
-    ?assertEqual(<<"Given domain does not exist">>, get_err_msg(Res)).
+    ?assertEqual(<<"unknown_sender">>, get_err_code(Res)),
+    ?assertEqual(<<"Sender's account does not exist">>, get_err_msg(Res)).
 
 admin_get_last_messages(Config) ->
     escalus:fresh_story_with_config(Config, [{alice, 1}, {bob, 1}],
@@ -498,5 +496,5 @@ check_stanza_map(#{<<"sender">> := SenderJID,
 
 spoofed_error(Call, Response) ->
     null = graphql_helper:get_err_value([data, stanza, Call], Response),
-    ?assertEqual(<<"Sending from this JID is not allowed">>, get_err_msg(Response)),
-    ?assertEqual(<<"bad_from_jid">>, get_err_code(Response)).
+    ?assertEqual(<<"Sender's JID is different from the user's JID">>, get_err_msg(Response)),
+    ?assertEqual(<<"invalid_sender">>, get_err_code(Response)).

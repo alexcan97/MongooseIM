@@ -267,9 +267,9 @@ message_errors(Config) ->
         send_message_bin(AliceJID, <<"@noway">>),
     {?BAD_REQUEST, <<"Invalid sender JID">>} =
         send_message_bin(<<"@noway">>, BobJID),
-    {?BAD_REQUEST, <<"Unknown user">>} =
+    {?BAD_REQUEST, <<"Sender's account does not exist">>} =
         send_message_bin(<<"baduser@", (domain())/binary>>, BobJID),
-    {?BAD_REQUEST, <<"Unknown domain">>} =
+    {?BAD_REQUEST, <<"Sender's account does not exist">>} =
         send_message_bin(<<"baduser@baddomain">>, BobJID).
 
 stanzas_are_sent_and_received(Config) ->
@@ -297,9 +297,9 @@ stanza_errors(Config) ->
         send_stanza(extended_message([{<<"from">>, AliceJid}, {<<"to">>, <<"@invalid">>}])),
     {?BAD_REQUEST, <<"Invalid sender JID">>} =
         send_stanza(extended_message([{<<"from">>, <<"@invalid">>}, {<<"to">>, BobJid}])),
-    {?BAD_REQUEST, <<"Unknown domain">>} =
+    {?BAD_REQUEST, <<"Sender's account does not exist">>} =
         send_stanza(extended_message([{<<"from">>, <<"baduser@baddomain">>}, {<<"to">>, BobJid}])),
-    {?BAD_REQUEST, <<"Unknown user">>} =
+    {?BAD_REQUEST, <<"Sender's account does not exist">>} =
         send_stanza(extended_message([{<<"from">>, UnknownJid}, {<<"to">>, BobJid}])),
     {?BAD_REQUEST, <<"Malformed stanza">>} =
         send_stanza(broken_message([{<<"from">>, AliceJid}, {<<"to">>, BobJid}])),
