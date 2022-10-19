@@ -210,7 +210,7 @@ init([HostType, Sid, Peer, PeerCert]) ->
                 max_stanza_size => 0,
                 hibernate_after => 0,
                 c2s_state_timeout => 5000},
-    {ok, C2SPid} = mongoose_c2s:start_link({?MODULE, BoshSocket, C2SOpts}, []),
+    {ok, C2SPid} = mongoose_c2s:start({?MODULE, BoshSocket, C2SOpts}, []),
     Opts = gen_mod:get_loaded_module_opts(HostType, mod_bosh),
     State = new_state(Sid, C2SPid, Opts),
     ?LOG_DEBUG(ls(#{what => bosh_socket_init, peer => Peer}, State)),

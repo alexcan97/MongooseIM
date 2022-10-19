@@ -12,7 +12,7 @@
 -export([callback_mode/0, init/1, handle_event/4, terminate/3]).
 
 %% utils
--export([start_link/2, stop/2, exit/2]).
+-export([start_link/2, start/2, stop/2, exit/2]).
 -export([get_host_type/1, get_lserver/1, get_sid/1, get_jid/1,
          get_mod_state/2, remove_mod_state/2,
          get_ip/1, get_socket/1, get_lang/1, get_stream_id/1]).
@@ -880,10 +880,15 @@ hook_arg(StateData, C2SState) ->
 %%% API
 %%%----------------------------------------------------------------------
 
--spec start_link({ranch:ref(), ranch_tcp, mongoose_listener:options()}, [gen_statem:start_opt()]) ->
+-spec start({module(), term(), mongoose_listener:options()}, [gen_statem:start_opt()]) ->
+    supervisor:startchild_ret().
+start(Params, ProcOpts) ->
+    supervisor:start_child(mongoose_c2s_sup, [Params, ProcOpts]).
+
+-spec start_link({module(), term(), mongoose_listener:options()}, [gen_statem:start_opt()]) ->
     gen_statem:start_ret().
 start_link(Params, ProcOpts) ->
-    gen_statem:start_link(?MODULE, Params, ProcOpts).
+    gen_statem:start_link(?MODULE, Params, ProcOpts ++ [{debug, [trace]}]).
 
 -spec stop(gen_statem:server_ref(), atom()) -> ok.
 stop(Pid, Reason) ->

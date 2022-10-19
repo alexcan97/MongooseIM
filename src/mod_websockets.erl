@@ -265,8 +265,8 @@ do_start_fsm(FSMModule, Opts, State = #ws_state{peer = Peer, peercert = PeerCert
     end.
 
 call_fsm_start(mongoose_c2s, SocketData, #{hibernate_after := HibernateAfterTimeout} = Opts) ->
-    mongoose_c2s:start_link({?MODULE, SocketData, Opts},
-                            [{hibernate_after, HibernateAfterTimeout}, {debug, []}]);
+    mongoose_c2s:start({?MODULE, SocketData, Opts},
+                       [{hibernate_after, HibernateAfterTimeout}, {debug, []}]);
 call_fsm_start(ejabberd_service, SocketData, Opts) ->
     ejabberd_service:start({?MODULE, SocketData}, Opts).
 

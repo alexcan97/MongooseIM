@@ -117,6 +117,7 @@ db_init() ->
 
 -spec broadcast_c2s_shutdown() -> 'ok'.
 broadcast_c2s_shutdown() ->
+    % TODO!
     Children = supervisor:which_children(ejabberd_c2s_sup),
     lists:foreach(
       fun({_, C2SPid, _, _}) ->
