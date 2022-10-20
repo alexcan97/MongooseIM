@@ -50,7 +50,7 @@ from_json(Req, State) ->
 handle_post(Req, State) ->
     Args = parse_body(Req),
     Stanza = get_stanza(Args),
-    case mongoose_stanza_api:send_stanza(null, Stanza) of
+    case mongoose_stanza_api:send_stanza(undefined, Stanza) of
         {ok, _} ->
             {true, Req, State};
         {_Error, Msg} ->

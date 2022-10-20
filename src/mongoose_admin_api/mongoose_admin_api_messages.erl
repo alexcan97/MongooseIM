@@ -69,16 +69,20 @@ handle_get(Req, State) ->
     Args = parse_qs(Req),
     Limit = get_limit(Args),
     Before = get_before(Args),
-    Rows = mongoose_stanza_api:lookup_recent_messages(OwnerJid, WithJid, Before, Limit),
-    Messages = lists:map(fun row_to_map/1, Rows),
-    {jiffy:encode(Messages), Req, State}.
+    case mongoose_stanza_api:lookup_recent_messages(OwnerJid, WithJid, Before, Limit, true) of
+        {ok, Rows} ->
+            Messages = lists:map(fun row_to_map/1, Rows),
+            {jiffy:encode(Messages), Req, State};
+        {unknown_user, Msg} ->
+            throw_error(bad_request, Msg)
+    end.
 
 handle_post(Req, State) ->
     Args = parse_body(Req),
     From = get_caller(Args),
     To = get_to(Args),
     Body = get_body(Args),
-    case mongoose_stanza_api:send_chat_message(null, From, To, Body) of
+    case mongoose_stanza_api:send_chat_message(undefined, From, To, Body) of
         {ok, _} ->
             {true, Req, State};
         {_Error, Msg} ->
